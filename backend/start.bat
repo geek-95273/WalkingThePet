@@ -49,13 +49,29 @@ echo 启动 Pet Service (8002)...
 start "Pet Service" cmd /k "cd walking-pet-pet-service && mvn spring-boot:run"
 timeout /t 5 /nobreak > nul
 
+echo 启动 Bulletin Service (8003)...
+start "Bulletin Service" cmd /k "cd walking-pet-bulletin-service && mvn spring-boot:run"
+timeout /t 5 /nobreak > nul
+
+echo 启动 Sitter Service (8004)...
+start "Sitter Service" cmd /k "cd walking-pet-sitter-service && mvn spring-boot:run"
+timeout /t 5 /nobreak > nul
+
 echo 启动 Order Service (8005)...
 start "Order Service" cmd /k "cd walking-pet-order-service && mvn spring-boot:run"
 
 echo.
 echo ========================================
-echo 所有服务启动中，请等待30秒...
+echo 所有服务启动中，请等待40秒...
 echo 访问 Nacos: http://192.168.163.1:8080/index.html
 echo 网关地址: http://localhost:8000
+echo.
+echo 已启动的服务:
+echo - Gateway (8000)
+echo - User Service (8001)
+echo - Pet Service (8002)
+echo - Bulletin Service (8003)
+echo - Sitter Service (8004)
+echo - Order Service (8005)
 echo ========================================
 pause

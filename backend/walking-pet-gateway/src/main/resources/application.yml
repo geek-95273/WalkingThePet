@@ -41,6 +41,22 @@ spring:
             - Path=/api/orders/**
           filters:
             - StripPrefix=0
+        
+        # 公告服务
+        - id: bulletin-service
+          uri: lb://bulletin-service
+          predicates:
+            - Path=/api/bulletins/**
+          filters:
+            - StripPrefix=0
+        
+        # 宠托师服务
+        - id: sitter-service
+          uri: lb://sitter-service
+          predicates:
+            - Path=/api/sitters/**
+          filters:
+            - StripPrefix=0
       
       # 全局CORS配置
       globalcors:

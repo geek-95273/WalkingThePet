@@ -19,6 +19,8 @@
         <module>walking-pet-user-service</module>
         <module>walking-pet-pet-service</module>
         <module>walking-pet-order-service</module>
+        <module>walking-pet-bulletin-service</module>
+        <module>walking-pet-sitter-service</module>
     </modules>
 
     <properties>

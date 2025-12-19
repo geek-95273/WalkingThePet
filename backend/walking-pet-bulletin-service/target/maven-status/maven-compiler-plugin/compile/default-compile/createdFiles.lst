@@ -1,0 +1,7 @@
+com\walkingpet\bulletin\BulletinServiceApplication.class
+com\walkingpet\bulletin\mapper\BulletinMapper.class
+com\walkingpet\bulletin\controller\BulletinController.class
+com\walkingpet\bulletin\dto\BulletinAcceptDTO.class
+com\walkingpet\bulletin\dto\BulletinCreateDTO.class
+com\walkingpet\bulletin\entity\Bulletin.class
+com\walkingpet\bulletin\service\BulletinService.class
