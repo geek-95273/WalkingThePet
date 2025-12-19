@@ -1,0 +1,35 @@
+server:
+  port: 8002
+
+spring:
+  application:
+    name: pet-service
+  
+  cloud:
+    nacos:
+      discovery:
+        server-addr: 192.168.163.1:8848
+      config:
+        server-addr: 192.168.163.1:8848
+        file-extension: yaml
+        namespace: public
+        import-check:
+          enabled: false
+  
+  datasource:
+    url: jdbc:mysql://localhost:3306/walking_pet_pet?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false
+    username: root
+    password: 1234
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: true
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+  global-config:
+    db-config:
+      id-type: assign_id
+
+logging:
+  level:
+    com.walkingpet: debug

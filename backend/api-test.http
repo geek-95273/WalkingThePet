@@ -1,0 +1,85 @@
+# API测试集合
+
+## 测试环境
+BASE_URL=http://localhost:8000
+
+## 1. 用户注册
+POST {{BASE_URL}}/api/auth/register
+Content-Type: application/json
+
+{
+  "username": "testuser",
+  "password": "123456",
+  "confirmPassword": "123456"
+}
+
+## 2. 用户登录
+POST {{BASE_URL}}/api/auth/login
+Content-Type: application/json
+
+{
+  "username": "testuser",
+  "password": "123456"
+}
+
+## 保存返回的token
+@token = {{登录接口返回的token}}
+
+## 3. 创建宠物档案
+POST {{BASE_URL}}/api/pets
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "type": "猫",
+  "name": "小花",
+  "age": "2岁",
+  "gender": "母",
+  "weight": "4kg",
+  "breed": "英短",
+  "aggressive": false,
+  "rabiesVaccine": true,
+  "intro": "温顺可爱的小猫咪",
+  "image": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
+}
+
+## 4. 获取宠物列表
+GET {{BASE_URL}}/api/pets
+Authorization: Bearer {{token}}
+
+## 5. 获取宠物详情
+GET {{BASE_URL}}/api/pets/{{petId}}
+Authorization: Bearer {{token}}
+
+## 6. 创建订单
+POST {{BASE_URL}}/api/orders
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "sitterId": "s-001",
+  "serviceType": "feed-cat",
+  "serviceTime": "2024-12-20 10:00",
+  "address": "北京市朝阳区xxx小区",
+  "petId": "pet-123",
+  "walkerGender": "不限",
+  "remark": "请喂湿粮60g"
+}
+
+## 7. 获取订单列表
+GET {{BASE_URL}}/api/orders
+Authorization: Bearer {{token}}
+
+## 8. 完成订单
+POST {{BASE_URL}}/api/orders/{{orderId}}/complete
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "completeContent": "已按时完成喂食，猫咪状态良好，换了新鲜的水，陪玩半小时",
+  "completeImage": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
+}
+
+## 9. 用户登出
+POST {{BASE_URL}}/api/auth/logout
+Authorization: Bearer {{token}}

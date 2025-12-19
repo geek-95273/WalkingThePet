@@ -1,0 +1,3 @@
+com\walkingpet\common\core\exception\GlobalExceptionHandler.class
+com\walkingpet\common\core\domain\Result.class
+com\walkingpet\common\core\exception\BusinessException.class
