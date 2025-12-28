@@ -1,50 +1,97 @@
 <script setup>
-import { computed, reactive } from 'vue';
+import { computed, reactive, ref, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { addPetProfile, findPetProfile, updatePetProfile } from '../data/petProfiles';
+import { getPetDetailApi, createPetApi, updatePetApi } from '../api/pet';
 
 const route = useRoute();
 const router = useRouter();
 const isEdit = computed(() => Boolean(route.params.id));
-const current = computed(() => (isEdit.value ? findPetProfile(route.params.id) : null));
+const loading = ref(false);
 
 const form = reactive({
-  type: current.value?.type || '猫',
-  name: current.value?.name || '',
-  age: current.value?.age || '',
-  gender: current.value?.gender || '公',
-  weight: current.value?.weight || '',
-  breed: current.value?.breed || '',
-  aggressive: current.value?.aggressive || false,
-  rabiesVaccine: current.value?.rabiesVaccine || false,
-  intro: current.value?.intro || '',
-  image:
-    current.value?.image ||
-    'https://images.unsplash.com/photo-1518791841217-8f162f1e1131?auto=format&fit=crop&w=400&q=80'
+  type: '猫',
+  name: '',
+  age: '',
+  gender: '公',
+  weight: '',
+  breed: '',
+  aggressive: false,
+  rabiesVaccine: false,
+  intro: '',
+  image: 'https://images.unsplash.com/photo-1518791841217-8f162f1e1131?auto=format&fit=crop&w=400&q=80'
 });
 
-const handleSubmit = () => {
+// 加载宠物详情（编辑模式）
+const loadPetDetail = async () => {
+  if (!isEdit.value || !route.params.id) return;
+  
+  try {
+    loading.value = true;
+    const data = await getPetDetailApi(route.params.id);
+    if (data) {
+      Object.assign(form, {
+        type: data.type || '猫',
+        name: data.name || '',
+        age: data.age || '',
+        gender: data.gender || '公',
+        weight: data.weight || '',
+        breed: data.breed || '',
+        aggressive: data.aggressive || false,
+        rabiesVaccine: data.rabiesVaccine || false,
+        intro: data.intro || '',
+        image: data.image || form.image
+      });
+    }
+  } catch (error) {
+    console.error('加载宠物详情失败:', error);
+    alert('加载宠物信息失败，请重试');
+  } finally {
+    loading.value = false;
+  }
+};
+
+const handleSubmit = async () => {
   if (!form.name.trim()) {
     alert('请填写名字');
     return;
   }
-  const payload = { ...form };
-  let id = current.value?.id;
-  if (isEdit.value && current.value) {
-    updatePetProfile(current.value.id, payload);
-    id = current.value.id;
-  } else {
-    id = addPetProfile(payload);
+  
+  try {
+    loading.value = true;
+    const payload = { ...form };
+    
+    if (isEdit.value && route.params.id) {
+      // 更新宠物
+      await updatePetApi(route.params.id, payload);
+      alert('更新成功！');
+      router.push({ name: 'PetDetail', params: { id: route.params.id } });
+    } else {
+      // 创建新宠物
+      const result = await createPetApi(payload);
+      alert('添加成功！');
+      router.push({ name: 'PetArchive' });
+    }
+  } catch (error) {
+    console.error('保存失败:', error);
+    alert(error.message || '保存失败，请重试');
+  } finally {
+    loading.value = false;
   }
-  router.push({ name: 'PetDetail', params: { id } });
 };
+
+onMounted(() => {
+  loadPetDetail();
+});
 
 const handleImageChange = (event) => {
   const file = event.target.files[0];
   if (file) {
+    console.log('选择的文件:', file.name, '大小:', (file.size / 1024).toFixed(2) + 'KB');
     const reader = new FileReader();
     reader.onload = (e) => {
       form.image = e.target.result;
+      console.log('图片Base64长度:', form.image.length);
+      console.log('图片Base64前100字符:', form.image.substring(0, 100));
     };
     reader.readAsDataURL(file);
   }
@@ -65,7 +112,10 @@ const goBack = () => router.push({ name: 'PetArchive' });
     </header>
 
     <form class="card" @submit.prevent="handleSubmit">
-      <div class="grid">
+      <div v-if="loading" style="text-align: center; padding: 20px;">
+        <p>{{ isEdit ? '加载中...' : '保存中...' }}</p>
+      </div>
+      <div v-else class="grid">
         <label class="field">
           <span>类型</span>
           <select v-model="form.type">
@@ -124,7 +174,9 @@ const goBack = () => router.push({ name: 'PetArchive' });
         </label>
       </div>
       <div class="actions">
-        <button type="submit" class="cta">保存</button>
+        <button type="submit" class="cta" :disabled="loading">
+          {{ loading ? '保存中...' : '保存' }}
+        </button>
       </div>
     </form>
   </section>

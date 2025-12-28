@@ -1,3 +1,4 @@
+com\walkingpet\order\feign\SitterFeignClient.class
 com\walkingpet\order\controller\OrderController.class
 com\walkingpet\order\entity\Order.class
 com\walkingpet\order\service\OrderService.class

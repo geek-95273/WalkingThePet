@@ -22,10 +22,13 @@ public class BulletinService {
     @Autowired
     private BulletinMapper bulletinMapper;
     
+    @Autowired
+    private com.walkingpet.bulletin.feign.OrderFeignClient orderFeignClient;
+    
     private static final DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
     
     /**
-     * 创建公告
+     * 创建公告（订单由前端创建）
      */
     public Bulletin createBulletin(String userId, BulletinCreateDTO dto) {
         Bulletin bulletin = new Bulletin();
@@ -51,18 +54,28 @@ public class BulletinService {
         bulletin.setUpdatedAt(LocalDateTime.now());
         
         bulletinMapper.insert(bulletin);
+        log.info("公告创建成功: bulletinId={}", bulletin.getBulletinId());
+        
         return bulletin;
     }
     
     /**
      * 获取公告列表（分页）
+     * 默认只返回待接单的公告，个人中心查看自己的公告时可以看到所有状态
      */
-    public IPage<Bulletin> getBulletinList(Integer page, Integer pageSize, String serviceType) {
+    public IPage<Bulletin> getBulletinList(Integer page, Integer pageSize, String serviceType, String userId, Boolean mine) {
         Page<Bulletin> pageParam = new Page<>(page, pageSize);
         
         LambdaQueryWrapper<Bulletin> wrapper = new LambdaQueryWrapper<>();
         if (StringUtils.hasText(serviceType)) {
             wrapper.eq(Bulletin::getServiceType, serviceType);
+        }
+        if (Boolean.TRUE.equals(mine) && StringUtils.hasText(userId)) {
+            // 查看我的公告时，显示所有状态
+            wrapper.eq(Bulletin::getUserId, userId);
+        } else {
+            // 公共公告列表，只显示待接单的
+            wrapper.eq(Bulletin::getStatus, "待接单");
         }
         wrapper.orderByDesc(Bulletin::getCreatedAt);
         
@@ -79,9 +92,9 @@ public class BulletinService {
     }
     
     /**
-     * 接单
+     * 接单（同时更新对应的订单状态和宠托师信息）
      */
-    public Bulletin acceptBulletin(String id, BulletinAcceptDTO dto) {
+    public Bulletin acceptBulletin(String id, BulletinAcceptDTO dto, String userId) {
         Bulletin bulletin = getBulletinById(id);
         if (bulletin == null) {
             throw new RuntimeException("公告不存在");
@@ -90,12 +103,31 @@ public class BulletinService {
         if (!"待接单".equals(bulletin.getStatus())) {
             throw new RuntimeException("该公告已被接单");
         }
+
+        if (StringUtils.hasText(userId) && userId.equals(bulletin.getUserId())) {
+            throw new RuntimeException("不能接自己发布的公告");
+        }
         
         bulletin.setSitterId(dto.getSitterId());
         bulletin.setStatus("已接单");
         bulletin.setUpdatedAt(LocalDateTime.now());
         
         bulletinMapper.updateById(bulletin);
+        
+        // 同时通过bulletinId更新订单状态和宠托师信息
+        try {
+            java.util.Map<String, String> statusData = new java.util.HashMap<>();
+            statusData.put("bulletinId", bulletin.getBulletinId());
+            statusData.put("status", "已接单");
+            statusData.put("sitterId", userId); // 宠托师的userId
+            
+            orderFeignClient.updateOrderStatus(bulletin.getBulletinId(), statusData);
+            log.info("公告接单成功，同时更新订单: bulletinId={}, sitterUserId={}", bulletin.getBulletinId(), userId);
+        } catch (Exception e) {
+            log.error("更新订单失败，但公告状态已更新: bulletinId={}", bulletin.getBulletinId(), e);
+            // 不影响接单流程，只记录日志
+        }
+        
         return bulletin;
     }
     

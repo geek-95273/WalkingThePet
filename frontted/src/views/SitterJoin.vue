@@ -1,13 +1,13 @@
 <script setup>
 import { reactive } from 'vue';
 import { useRouter } from 'vue-router';
-import { addSitter } from '../data/sitters';
-import { setSitterId } from '../data/user';
+import { joinSitterApi } from '../api/sitter';
+import { setSitterId, user } from '../data/user';
 
 const router = useRouter();
 
 const form = reactive({
-  name: '',
+  name: user.username || '',
   gender: '女生',
   slogan: '',
   tags: '',
@@ -20,38 +20,47 @@ const form = reactive({
   walkDuration: '30分钟'
 });
 
-const handleSubmit = () => {
+const handleSubmit = async () => {
   if (!form.name.trim()) {
     alert('请填写姓名');
     return;
   }
-  const sitterId = addSitter({
-    name: form.name,
-    gender: form.gender,
-    distance: form.distance,
-    slogan: form.slogan || '可信赖的本地宠托师',
-    tags: form.tags
-      ? form.tags
-          .split(',')
-          .map((t) => t.trim())
-          .filter(Boolean)
-      : ['时间灵活', '反馈及时'],
-    pets: [
-      {
-        name: form.petName || '我的宠物',
-        desc: form.petDesc || '温柔可爱',
-        cover: form.petImage
-      }
-    ],
-    services: [
-      { type: 'feed-cat', title: '上门喂猫', price: form.feedPrice, duration: form.feedDuration },
-      { type: 'walk-dog', title: '上门遛狗', price: form.walkPrice, duration: form.walkDuration }
-    ]
-  });
+  
+  try {
+    const response = await joinSitterApi({
+      name: form.name,
+      gender: form.gender,
+      slogan: form.slogan || '可信赖的本地宠托师',
+      tags: form.tags
+        ? form.tags
+            .split(',')
+            .map((t) => t.trim())
+            .filter(Boolean)
+        : ['时间灵活', '反馈及时'],
+      pets: [
+        {
+          name: form.petName || '我的宠物',
+          desc: form.petDesc || '温柔可爱',
+          cover: form.petImage
+        }
+      ],
+      services: [
+        { type: 'feed-cat', title: '上门喂猫', price: form.feedPrice, duration: form.feedDuration },
+        { type: 'walk-dog', title: '上门遛狗', price: form.walkPrice, duration: form.walkDuration }
+      ]
+    });
 
-  setSitterId(sitterId);
-  alert('入驻成功，可前往喂溜公告接单');
-  router.push({ name: 'Sitters' });
+    if (response.success && response.body) {
+      setSitterId(response.body.sitter_id);
+      alert('入驻成功，可前往喂溜公告接单');
+      router.push({ name: 'Sitters' });
+    } else {
+      alert(response.message || '入驻失败');
+    }
+  } catch (error) {
+    console.error('入驻失败:', error);
+    alert('入驻失败，请稍后重试');
+  }
 };
 
 const handleImageChange = (event) => {
@@ -72,9 +81,10 @@ const goBack = () => router.back();
   <section class="join">
     <header class="page__header">
       <div>
-        <p class="eyebrow">入驻宠托师</p>
-        <h1>完善信息，开始接单</h1>
-        <p class="subtitle">填写个人简介、标签、养宠展示及服务价格。</p>
+        <p class="eyebrow">{{ isEdit ? '编辑宠托师信息' : '入驻宠托师' }}</p>
+        <h1>{{ isEdit ? '更新信息' : '完善信息，开始接单' }}</h1>
+        <p v-if="isEdit" class="subtitle" style="color: #4caf50; font-weight: 600;">✓ 已入驻，可修改信息并重新提交</p>
+        <p v-else class="subtitle">填写个人简介、标签、养宠展示及服务价格。</p>
       </div>
       <button class="back" type="button" @click="goBack">返回</button>
     </header>
@@ -131,7 +141,7 @@ const goBack = () => router.back();
         </label>
       </div>
       <div class="actions">
-        <button type="submit" class="cta">提交入驻信息</button>
+        <button type="submit" class="cta">{{ isEdit ? '更新信息' : '提交入驻' }}</button>
       </div>
     </form>
   </section>

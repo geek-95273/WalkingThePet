@@ -43,8 +43,12 @@ public class SitterBusinessService {
      * 入驻宠托师
      */
     @Transactional(rollbackFor = Exception.class)
-    public Sitter joinSitter(String userId, SitterJoinDTO dto) {
-        // 创建宠托师基本信息
+    public Sitter joinSitter(String userId, SitterJoinDTO dto) {        // 检查是否已入驽
+        Sitter existingSitter = getSitterByUserId(userId);
+        if (existingSitter != null) {
+            throw new RuntimeException("您已入驽宠托师，请使用编辑功能更新信息");
+        }
+                // 创建宠托师基本信息
         Sitter sitter = new Sitter();
         sitter.setSitterId("s-" + System.currentTimeMillis());
         sitter.setUserId(userId);
@@ -134,6 +138,83 @@ public class SitterBusinessService {
         LambdaQueryWrapper<Sitter> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(Sitter::getSitterId, id);
         return sitterMapper.selectOne(wrapper);
+    }
+    
+    /**
+     * 根据userId获取宠托师信息
+     */
+    public Sitter getSitterByUserId(String userId) {
+        LambdaQueryWrapper<Sitter> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(Sitter::getUserId, userId);
+        return sitterMapper.selectOne(wrapper);
+    }
+    
+    /**
+     * 更新宠托师信息
+     */
+    @Transactional(rollbackFor = Exception.class)
+    public Sitter updateSitter(String userId, SitterJoinDTO dto) {
+        // 获取现有宠托师信息
+        Sitter sitter = getSitterByUserId(userId);
+        if (sitter == null) {
+            throw new RuntimeException("未入驻宠托师，无法更新");
+        }
+        
+        // 更新基本信息
+        sitter.setName(dto.getName());
+        sitter.setGender(dto.getGender());
+        sitter.setSlogan(dto.getSlogan());
+        sitter.setUpdatedAt(LocalDateTime.now());
+        sitterMapper.updateById(sitter);
+        
+        // 删除旧标签，添加新标签
+        LambdaQueryWrapper<SitterTag> tagWrapper = new LambdaQueryWrapper<>();
+        tagWrapper.eq(SitterTag::getSitterId, sitter.getSitterId());
+        sitterTagMapper.delete(tagWrapper);
+        
+        if (dto.getTags() != null && !dto.getTags().isEmpty()) {
+            for (String tag : dto.getTags()) {
+                SitterTag sitterTag = new SitterTag();
+                sitterTag.setSitterId(sitter.getSitterId());
+                sitterTag.setTag(tag);
+                sitterTagMapper.insert(sitterTag);
+            }
+        }
+        
+        // 删除旧宠物，添加新宠物
+        LambdaQueryWrapper<SitterPet> petWrapper = new LambdaQueryWrapper<>();
+        petWrapper.eq(SitterPet::getSitterId, sitter.getSitterId());
+        sitterPetMapper.delete(petWrapper);
+        
+        if (dto.getPets() != null && !dto.getPets().isEmpty()) {
+            for (SitterJoinDTO.PetDTO petDTO : dto.getPets()) {
+                SitterPet pet = new SitterPet();
+                pet.setSitterId(sitter.getSitterId());
+                pet.setName(petDTO.getName());
+                pet.setDescription(petDTO.getDesc());
+                pet.setCover(petDTO.getCover());
+                sitterPetMapper.insert(pet);
+            }
+        }
+        
+        // 删除旧服务，添加新服务
+        LambdaQueryWrapper<SitterService> serviceWrapper = new LambdaQueryWrapper<>();
+        serviceWrapper.eq(SitterService::getSitterId, sitter.getSitterId());
+        sitterServiceMapper.delete(serviceWrapper);
+        
+        if (dto.getServices() != null && !dto.getServices().isEmpty()) {
+            for (SitterJoinDTO.ServiceDTO serviceDTO : dto.getServices()) {
+                SitterService service = new SitterService();
+                service.setSitterId(sitter.getSitterId());
+                service.setServiceType(serviceDTO.getType());
+                service.setTitle(serviceDTO.getTitle());
+                service.setPrice(serviceDTO.getPrice());
+                service.setDuration(serviceDTO.getDuration());
+                sitterServiceMapper.insert(service);
+            }
+        }
+        
+        return sitter;
     }
     
     /**

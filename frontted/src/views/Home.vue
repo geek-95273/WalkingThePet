@@ -1,11 +1,34 @@
 <script setup>
-import { computed, nextTick, reactive, ref } from 'vue';
+import { computed, nextTick, reactive, ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
-import { addBulletin } from '../data/bulletins';
-import { petProfiles } from '../data/petProfiles';
+import { createBulletinApi } from '../api/bulletin';
+import { createOrderApi } from '../api/order';
+import { getPetsApi } from '../api/pet';
 
 const router = useRouter();
 const formRef = ref(null);
+const petProfiles = ref([]);
+
+const loadPets = async () => {
+  try {
+    const response = await getPetsApi();
+    if (response.success && response.body) {
+      petProfiles.value = response.body.map(pet => ({
+        id: pet.petId,
+        name: pet.name,
+        type: pet.type,
+        breed: pet.breed || pet.type
+      }));
+    }
+  } catch (error) {
+    console.error('加载宠物列表失败:', error);
+  }
+};
+
+onMounted(() => {
+  loadPets();
+});
+
 const form = reactive({
   serviceType: 'feed-cat',
   address: '',
@@ -29,7 +52,7 @@ const quickSelect = (type) => {
 };
 
 const selectPet = (petId) => {
-  const pet = petProfiles.find(p => p.id === petId);
+  const pet = petProfiles.value.find(p => p.id === petId);
   if (pet) {
     form.petId = pet.id;
     form.petName = pet.name;
@@ -41,7 +64,7 @@ const goToPetArchive = () => {
   router.push({ name: 'PetArchive' });
 };
 
-const handleSubmit = () => {
+const handleSubmit = async () => {
   if (!form.address.trim() || !form.serviceTime.trim()) {
     alert('请填写地址与服务时间');
     return;
@@ -52,12 +75,57 @@ const handleSubmit = () => {
       ? `上门喂猫 · ${form.petName || '小猫'}`
       : `上门遛狗 · ${form.petName || '小狗'}`;
 
-  const id = addBulletin({
-    title,
-    ...form
-  });
+  // 格式化服务时间为后端期望的格式 "yyyy-MM-dd HH:mm"
+  let serviceTime = form.serviceTime;
+  if (serviceTime) {
+    // 将 "2025-12-27T15:13" 或 "2025-12-27T15:13:00" 转换为 "2025-12-27 15:13"
+    serviceTime = serviceTime.substring(0, 16).replace('T', ' ');
+  }
 
-  router.push({ name: 'BulletinDetail', params: { id } });
+  try {
+    const response = await createBulletinApi({
+      title,
+      serviceType: form.serviceType,
+      address: form.address,
+      petId: form.petId,
+      petName: form.petName,
+      petType: form.petType,
+      serviceTime: serviceTime,
+      walkerGender: form.walkerGender,
+      remark: form.remark
+    });
+
+    if (response && response.body) {
+      // 公告创建成功后，立即创建对应的订单
+      try {
+        const orderResponse = await createOrderApi({
+          bulletinId: response.body.id,
+          serviceType: form.serviceType,
+          serviceTime: serviceTime,
+          address: form.address,
+          petId: form.petId,
+          petName: form.petName,
+          petType: form.petType,
+          walkerGender: form.walkerGender,
+          remark: form.remark,
+          status: '待宠托师接单'
+        });
+        console.log('公告和订单创建成功', orderResponse);
+      } catch (orderError) {
+        console.error('创建订单失败:', orderError);
+        alert('公告创建成功，但订单创建失败: ' + (orderError.message || '未知错误'));
+        // 继续执行，不阻止跳转
+      }
+      
+      alert('公告创建成功！');
+      router.push({ name: 'BulletinDetail', params: { id: response.body.id } });
+    } else {
+      alert('创建失败，请重试');
+    }
+  } catch (error) {
+    console.error('创建公告失败:', error);
+    alert(error.message || '创建失败，请稍后重试');
+  }
 };
 </script>
 

@@ -28,8 +28,17 @@ public class OrderController {
     @PostMapping
     public Result<Order> createOrder(@RequestHeader("X-User-Id") String userId,
                                       @RequestBody CreateOrderRequest request) {
-        log.info("创建订单，用户: {}", userId);
-        Order order = orderService.createOrder(userId, request);
+        log.info("======== 创建订单请求 ========");
+        log.info("用户ID: {}", userId);
+        log.info("公告ID: {}", request.getBulletinId());
+        log.info("服务类型: {}", request.getServiceType());
+        log.info("服务时间: {}", request.getServiceTime());
+        log.info("地址: {}", request.getAddress());
+        log.info("宠物: {} - {}", request.getPetName(), request.getPetType());
+        log.info("状态: {}", request.getStatus());
+        // 如果有bulletinId，说明是从公告创建，传递给service
+        Order order = orderService.createOrder(userId, request, request.getBulletinId());
+        log.info("订单创建成功: {}", order.getOrderId());
         return Result.success(order, "创建成功");
     }
 
@@ -47,9 +56,10 @@ public class OrderController {
      * 获取订单详情
      */
     @GetMapping("/{id}")
-    public Result<Order> getOrder(@PathVariable String id) {
+    public Result<Order> getOrder(@PathVariable String id,
+                                   @RequestHeader("X-User-Id") String userId) {
         log.info("获取订单详情: {}", id);
-        Order order = orderService.getOrderById(id);
+        Order order = orderService.getOrderById(id, userId);
         return Result.success(order);
     }
 
@@ -69,10 +79,11 @@ public class OrderController {
      */
     @PostMapping("/{id}/complete")
     public Result<Order> completeOrder(@PathVariable String id,
-                                        @RequestBody CompleteOrderRequest request) {
+                                        @RequestBody CompleteOrderRequest request,
+                                        @RequestHeader("X-User-Id") String userId) {
         log.info("完成订单: {}", id);
         request.setOrderId(id);
-        Order order = orderService.completeOrder(request);
+        Order order = orderService.completeOrder(request, userId);
         return Result.success(order, "订单已完成");
     }
 
@@ -81,12 +92,24 @@ public class OrderController {
      */
     @PostMapping("/bulletin/{bulletinId}")
     public Result<Order> createOrderFromBulletin(@PathVariable String bulletinId,
-                                                   @RequestBody CreateOrderRequest request) {
-        log.info("从公告创建订单: bulletinId={}", bulletinId);
+                                                   @RequestBody CreateOrderRequest request,
+                                                   @RequestHeader("X-User-Id") String userId) {
+        log.info("从公告创建订单: bulletinId={}, userId={}", bulletinId, userId);
         request.setStatus("已接单"); // 宠托师接单时直接设为已接单
-        // 这里userId需要从request中获取或者作为参数传入
-        Order order = orderService.createOrder(request.getSitterId(), request);
-        order.setBulletinId(bulletinId);
+        request.setSitterId(userId); // 将接单宠托师绑定为当前登录用户
+        Order order = orderService.createOrder(userId, request, bulletinId);
         return Result.success(order, "订单创建成功");
     }
-}
+    
+    /**
+     * 通过bulletinId更新订单状态（内部接口，由Bulletin Service调用）
+     */
+    @PutMapping("/{bulletinId}/status")
+    public Result<Order> updateOrderStatus(@PathVariable String bulletinId,
+                                           @RequestBody java.util.Map<String, String> statusData) {
+        log.info("更新订单状态: bulletinId={}, statusData={}", bulletinId, statusData);
+        String status = statusData.get("status");
+        String sitterId = statusData.get("sitterId");
+        Order order = orderService.updateOrderByBulletinId(bulletinId, status, sitterId);
+        return Result.success(order, "订单状态更新成功");
+    }}

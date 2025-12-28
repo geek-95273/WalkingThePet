@@ -1,14 +1,35 @@
 <script setup>
-import { computed, ref } from 'vue';
+import { computed, ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
-import { bulletins } from '../data/bulletins';
+import { getBulletinsApi } from '../api/bulletin';
 
 const router = useRouter();
 const filter = ref('all');
+const bulletins = ref([]);
+
+const loadBulletins = async () => {
+  try {
+    const params = {};
+    if (filter.value !== 'all') {
+      params.service_type = filter.value;
+    }
+    const response = await getBulletinsApi(params);
+    if (response.success && response.body) {
+      bulletins.value = response.body.list || [];
+    }
+  } catch (error) {
+    console.error('加载公告列表失败:', error);
+    alert('加载失败，请稍后重试');
+  }
+};
+
+onMounted(() => {
+  loadBulletins();
+});
 
 const filtered = computed(() => {
-  if (filter.value === 'all') return bulletins;
-  return bulletins.filter((item) => item.serviceType === filter.value);
+  if (filter.value === 'all') return bulletins.value;
+  return bulletins.value.filter((item) => item.service_type === filter.value);
 });
 
 const serviceLabel = (type) => (type === 'feed-cat' ? '上门喂猫' : '上门遛狗');
@@ -45,17 +66,17 @@ const goDetail = (id) => {
         @keyup.space.prevent="goDetail(item.id)"
       >
         <div class="card__top">
-          <span class="badge" :data-type="item.serviceType">{{ serviceLabel(item.serviceType) }}</span>
+          <span class="badge" :data-type="item.service_type">{{ serviceLabel(item.service_type) }}</span>
           <span class="distance">{{ item.distance }}</span>
         </div>
         <h3>{{ item.title }}</h3>
         <p class="meta">
-          {{ item.address }} · {{ item.serviceTime }}
+          {{ item.address }} · {{ item.service_time }}
         </p>
         <p class="desc">{{ item.remark }}</p>
         <div class="tags">
-          <span>{{ item.petName || '宠物' }} · {{ item.petType || '未填写' }}</span>
-          <span>性别：{{ item.walkerGender }}</span>
+          <span>{{ item.pet_name || '宠物' }} · {{ item.pet_type || '未填写' }}</span>
+          <span>性别：{{ item.walker_gender }}</span>
           <span>状态：{{ item.status }}</span>
         </div>
       </article>

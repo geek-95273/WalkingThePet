@@ -37,6 +37,10 @@ public class Order implements Serializable {
 
     private String petId;
 
+    private String petName;
+
+    private String petType;
+
     private String walkerGender;
 
     private String remark;

@@ -1,13 +1,30 @@
 <script setup>
-import { computed, ref } from 'vue';
+import { computed, ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
-import { sitters } from '../data/sitters';
+import { getSittersApi } from '../api/sitter';
 
 const router = useRouter();
 const sortKey = ref('distance');
+const sitters = ref([]);
+
+const loadSitters = async () => {
+  try {
+    const response = await getSittersApi({ page: 1, page_size: 100 });
+    if (response.success && response.body) {
+      sitters.value = response.body.list || [];
+    }
+  } catch (error) {
+    console.error('加载宠托师列表失败:', error);
+    alert('加载失败，请稍后重试');
+  }
+};
+
+onMounted(() => {
+  loadSitters();
+});
 
 const sortedSitters = computed(() => {
-  const list = [...sitters];
+  const list = [...sitters.value];
   if (sortKey.value === 'rating') {
     return list.sort((a, b) => b.rating - a.rating);
   }

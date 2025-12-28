@@ -46,6 +46,64 @@ public class SitterController {
     }
     
     /**
+     * 获取当前用户的宠托师信息
+     */
+    @GetMapping("/my-info")
+    public Result<Map<String, Object>> getMySitterInfo(
+            @RequestHeader(value = "X-User-Id") String userId) {
+        try {
+            Sitter sitter = sitterBusinessService.getSitterByUserId(userId);
+            if (sitter == null) {
+                return Result.fail("未入驻宠托师");
+            }
+            
+            Map<String, Object> result = new HashMap<>();
+            result.put("sitter_id", sitter.getSitterId());
+            result.put("name", sitter.getName());
+            result.put("gender", sitter.getGender());
+            result.put("slogan", sitter.getSlogan());
+            
+            // 获取标签
+            List<String> tags = sitterBusinessService.getSitterTags(sitter.getSitterId());
+            result.put("tags", tags);
+            
+            // 获取宠物展示
+            List<SitterPet> pets = sitterBusinessService.getSitterPets(sitter.getSitterId());
+            result.put("pets", pets);
+            
+            // 获取服务列表
+            List<SitterService> services = sitterBusinessService.getSitterServices(sitter.getSitterId());
+            result.put("services", services);
+            
+            return Result.success(result, "获取成功");
+        } catch (Exception e) {
+            log.error("获取宠托师信息失败", e);
+            return Result.fail("获取失败：" + e.getMessage());
+        }
+    }
+    
+    /**
+     * 更新宠托师信息
+     */
+    @PutMapping("/update")
+    public Result<Map<String, Object>> updateSitter(
+            @RequestHeader(value = "X-User-Id") String userId,
+            @RequestBody SitterJoinDTO dto) {
+        try {
+            Sitter sitter = sitterBusinessService.updateSitter(userId, dto);
+            
+            Map<String, Object> result = new HashMap<>();
+            result.put("sitter_id", sitter.getSitterId());
+            result.put("status", "updated");
+            
+            return Result.success(result, "更新成功");
+        } catch (Exception e) {
+            log.error("更新宠托师信息失败", e);
+            return Result.fail("更新失败：" + e.getMessage());
+        }
+    }
+    
+    /**
      * 获取宠托师列表
      */
     @GetMapping
@@ -97,8 +155,12 @@ public class SitterController {
                 return Result.fail("宠托师不存在");
             }
             
+            log.info("查询宠托师详情 - sitterId: {}, userId: {}, name: {}", 
+                    sitter.getSitterId(), sitter.getUserId(), sitter.getName());
+            
             Map<String, Object> result = new HashMap<>();
             result.put("id", sitter.getSitterId());
+            result.put("userId", sitter.getUserId());
             result.put("name", sitter.getName());
             result.put("gender", sitter.getGender());
             result.put("distance", sitter.getDistance());

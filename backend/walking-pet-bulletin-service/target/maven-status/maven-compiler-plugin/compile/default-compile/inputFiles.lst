@@ -5,3 +5,4 @@ D:\桌面\Walking the pet\backend\walking-pet-bulletin-service\src\main\java\com\w
 D:\桌面\Walking the pet\backend\walking-pet-bulletin-service\src\main\java\com\walkingpet\bulletin\BulletinServiceApplication.java
 D:\桌面\Walking the pet\backend\walking-pet-bulletin-service\src\main\java\com\walkingpet\bulletin\controller\BulletinController.java
 D:\桌面\Walking the pet\backend\walking-pet-bulletin-service\src\main\java\com\walkingpet\bulletin\entity\Bulletin.java
+D:\桌面\Walking the pet\backend\walking-pet-bulletin-service\src\main\java\com\walkingpet\bulletin\feign\OrderFeignClient.java

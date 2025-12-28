@@ -1,10 +1,49 @@
 <script setup>
+import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
-import { orders } from '../data/orders';
-import { petProfiles } from '../data/petProfiles';
+import { getOrdersApi } from '../api/order';
+import { getPetsApi } from '../api/pet';
+import { getMySitterInfoApi } from '../api/sitter';
 import { user, logout, isLoggedIn } from '../data/user';
 
 const router = useRouter();
+
+const ordersCount = ref(0);
+const petsCount = ref(0);
+const sitterInfo = ref(null);
+
+const loadData = async () => {
+  if (!isLoggedIn()) return;
+  
+  try {
+    const ordersRes = await getOrdersApi();
+    if (ordersRes.success && ordersRes.body) {
+      ordersCount.value = ordersRes.body.length;
+    }
+    
+    const petsRes = await getPetsApi();
+    if (petsRes.success && petsRes.body) {
+      petsCount.value = petsRes.body.length;
+    }
+    
+    // 加载宠托师信息
+    try {
+      const sitterRes = await getMySitterInfoApi();
+      if (sitterRes.success && sitterRes.body) {
+        sitterInfo.value = sitterRes.body;
+      }
+    } catch (error) {
+      // 未入驻是正常情况，不需要报错
+      console.log('未入驻宠托师');
+    }
+  } catch (error) {
+    console.error('加载数据失败:', error);
+  }
+};
+
+onMounted(() => {
+  loadData();
+});
 
 const goOrders = () => router.push({ name: 'Orders' });
 const goPets = () => router.push({ name: 'PetArchive' });
@@ -33,7 +72,7 @@ const handleAuthAction = () => {
       <article class="card" role="button" tabindex="0" @click="goOrders" @keyup.enter="goOrders">
         <div class="card__header">
           <h3>我的订单</h3>
-          <span class="pill">共 {{ orders.length }} 条</span>
+          <span class="pill">共 {{ ordersCount }} 条</span>
         </div>
         <p class="desc">点击查看所有订单状态与记录。</p>
       </article>
@@ -41,17 +80,22 @@ const handleAuthAction = () => {
       <article class="card" role="button" tabindex="0" @click="goPets" @keyup.enter="goPets">
         <div class="card__header">
           <h3>宠物档案</h3>
-          <span class="pill">共 {{ petProfiles.length }} 只</span>
+          <span class="pill">共 {{ petsCount }} 只</span>
         </div>
         <p class="desc">管理你的宠物信息、照片与特殊说明。</p>
       </article>
 
       <article class="card" role="button" tabindex="0" @click="goJoin" @keyup.enter="goJoin">
         <div class="card__header">
-          <h3>入驻宠托师</h3>
-          <span class="pill">{{ user.sitterId ? '已入驻' : '去入驻' }}</span>
+          <h3>{{ sitterInfo ? '宠托师信息' : '入驻宠托师' }}</h3>
+          <span v-if="sitterInfo" class="pill success">✓ 已入驻</span>
+          <span v-else class="pill">去入驻</span>
         </div>
-        <p class="desc">完善个人介绍、服务与宠物展示，入驻后可接单。</p>
+        <p v-if="sitterInfo" class="desc">
+          {{ sitterInfo.name }} · {{ sitterInfo.gender }}<br>
+          {{ sitterInfo.slogan || '可信赖的本地宠托师' }}
+        </p>
+        <p v-else class="desc">完善个人介绍、服务与宠物展示，入驻后可接单。</p>
       </article>
     </div>
 
@@ -141,6 +185,12 @@ h3 {
   border: 1px solid rgba(255, 214, 102, 0.36);
   font-weight: 700;
   color: #4a3900;
+}
+
+.pill.success {
+  background: rgba(76, 175, 80, 0.2);
+  color: #2d5f2e;
+  border: 1px solid rgba(76, 175, 80, 0.4);
 }
 
 .desc {

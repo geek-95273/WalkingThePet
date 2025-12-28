@@ -1,13 +1,49 @@
 <script setup>
-import { computed, reactive } from 'vue';
+import { ref, reactive, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { findSitter } from '../data/sitters';
-import { createOrder } from '../data/orders';
-import { petProfiles } from '../data/petProfiles';
+import { getSitterDetailApi } from '../api/sitter';
+import { createOrderApi } from '../api/order';
+import { getPetsApi } from '../api/pet';
+import { user } from '../data/user';
 
 const route = useRoute();
 const router = useRouter();
-const sitter = computed(() => findSitter(route.params.id));
+const sitter = ref(null);
+const petProfiles = ref([]);
+
+const loadSitter = async () => {
+  try {
+    const response = await getSitterDetailApi(route.params.id);
+    if (response.success && response.body) {
+      sitter.value = response.body;
+      console.log('加载宠托师详情成功:', sitter.value);
+      console.log('宠托师userId:', sitter.value.userId);
+    }
+  } catch (error) {
+    console.error('加载宠托师详情失败:', error);
+    alert('加载失败，请稍后重试');
+  }
+};
+
+const loadPets = async () => {
+  try {
+    const response = await getPetsApi();
+    if (response.success && response.body) {
+      petProfiles.value = response.body.map(pet => ({
+        id: pet.petId,
+        name: pet.name,
+        type: pet.type || '宠物'
+      }));
+    }
+  } catch (error) {
+    console.error('加载宠物列表失败:', error);
+  }
+};
+
+onMounted(() => {
+  loadSitter();
+  loadPets();
+});
 
 const form = reactive({
   serviceType: 'feed-cat',
@@ -19,7 +55,7 @@ const form = reactive({
 
 const serviceLabel = (type) => (type === 'feed-cat' ? '上门喂猫' : '上门遛狗');
 const selectPet = (petId) => {
-  const pet = petProfiles.find(p => p.id === petId);
+  const pet = petProfiles.value.find(p => p.id === petId);
   if (pet) {
     form.petId = pet.id;
   }
@@ -28,21 +64,64 @@ const selectPet = (petId) => {
 const goToPetArchive = () => {
   router.push({ name: 'PetArchive' });
 };
-const handleSubmit = () => {
+const handleSubmit = async () => {
   if (!sitter.value) return;
   if (!form.serviceTime.trim() || !form.address.trim()) {
     alert('请填写地址与服务时间');
     return;
   }
-  const id = createOrder({
-    sitterId: sitter.value.id,
-    serviceType: form.serviceType,
-    serviceTime: form.serviceTime,
-    address: form.address,
-    petId: form.petId,
-    remark: form.remark
-  });
-  router.push({ name: 'Profile', query: { order: id } });
+  
+  // 检查是否给自己下单
+  if (sitter.value.userId === user.userId) {
+    alert('不能给自己下单哦');
+    return;
+  }
+  
+  // 格式化服务时间为后端期望的格式 "yyyy-MM-dd HH:mm"
+  let serviceTime = form.serviceTime;
+  if (serviceTime) {
+    // 将 "2025-12-27T15:13" 或 "2025-12-27T15:13:00" 转换为 "2025-12-27 15:13"
+    serviceTime = serviceTime.substring(0, 16).replace('T', ' ');
+  }
+  
+  try {
+    // 调试输出
+    console.log('下单数据:', {
+      sitterId: sitter.value.userId,
+      sitterName: sitter.value.name,
+      serviceType: form.serviceType,
+      serviceTime: serviceTime,
+      address: form.address,
+      petId: form.petId,
+      remark: form.remark
+    });
+    
+    // 验证必填字段
+    if (!sitter.value.userId) {
+      alert('宠托师数据异常（缺少userId），请联系管理员或重新入驻');
+      return;
+    }
+    
+    const response = await createOrderApi({
+      sitterId: sitter.value.userId, // 使用宠托师的userId而不是sitterId
+      sitterName: sitter.value.name, // 传递宠托师姓名
+      serviceType: form.serviceType,
+      serviceTime: serviceTime,
+      address: form.address,
+      petId: form.petId,
+      remark: form.remark
+    });
+    
+    if (response.success) {
+      alert('下单成功');
+      router.push({ name: 'Profile' });
+    } else {
+      alert(response.message || '下单失败');
+    }
+  } catch (error) {
+    console.error('下单失败:', error);
+    alert('下单失败，请稍后重试');
+  }
 };
 
 const goBack = () => router.push({ name: 'Sitters' });

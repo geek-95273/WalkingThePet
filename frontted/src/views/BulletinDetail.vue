@@ -1,13 +1,13 @@
 <script setup>
-import { computed } from 'vue';
+import { ref, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { acceptBulletin, findBulletin } from '../data/bulletins';
-import { createOrder } from '../data/orders';
-import { isSitter, user } from '../data/user';
+import { getBulletinDetailApi, acceptBulletinApi } from '../api/bulletin';
+import { user } from '../data/user';
 
 const route = useRoute();
 const router = useRouter();
-const bulletin = computed(() => findBulletin(route.params.id));
+const bulletin = ref(null);
+const loading = ref(true);
 
 const serviceLabel = (type) => (type === 'feed-cat' ? '上门喂猫' : '上门遛狗');
 
@@ -15,40 +15,69 @@ const goBack = () => {
   router.push({ name: 'Bulletins' });
 };
 
-const handleAccept = () => {
-  if (!bulletin.value) return;
-  if (!isSitter()) {
-    alert('请先入驻宠托师后再接单');
-    router.push({ name: 'SitterJoin' });
-    return;
+const loadBulletinDetail = async () => {
+  try {
+    loading.value = true;
+    const response = await getBulletinDetailApi(route.params.id);
+    if (response && response.body) {
+      bulletin.value = response.body;
+    }
+  } catch (error) {
+    console.error('加载公告详情失败:', error);
+    alert('加载失败，请稍后重试');
+  } finally {
+    loading.value = false;
   }
-  acceptBulletin(bulletin.value.id, user.sitterId);
-  
-  // 宠托师接单，创建订单时状态直接为'已接单'
-  const orderId = createOrder({
-    sitterId: user.sitterId,
-    serviceType: bulletin.value.serviceType,
-    serviceTime: bulletin.value.serviceTime,
-    address: bulletin.value.address,
-    petId: bulletin.value.petId || '',
-    remark: bulletin.value.remark || '',
-    walkerGender: bulletin.value.walkerGender,
-    status: '已接单' // 宠托师接单直接为已接单状态
-  });
-  
-  alert('已接单，订单已生成，可在个人中心查看');
-  router.push({ name: 'Profile', query: { order: orderId } });
 };
+
+const handleAccept = async () => {
+  if (!bulletin.value) return;
+  
+  try {
+    // 先调用后端接口获取宠托师信息
+    const { getMySitterInfoApi } = await import('../api/sitter');
+    const sitterRes = await getMySitterInfoApi();
+    
+    if (!sitterRes.success || !sitterRes.body) {
+      alert('请先入驻宠托师后再接单');
+      router.push({ name: 'SitterJoin' });
+      return;
+    }
+    
+    const mySitter = sitterRes.body;
+    
+    // 接受公告（会自动更新对应的订单状态和宠托师信息）
+    await acceptBulletinApi(bulletin.value.id, {
+      sitterId: mySitter.sitterId // bulletin表使用sitter表的sitterId
+    });
+    
+    alert('已接单，订单已更新，可在个人中心查看');
+    router.push({ name: 'Profile' });
+  } catch (error) {
+    console.error('接单失败:', error);
+    // 如果是404错误，说明未入驻
+    if (error.message && error.message.includes('404')) {
+      alert('请先入驻宠托师后再接单');
+      router.push({ name: 'SitterJoin' });
+    } else {
+      alert(error.message || '接单失败，请稍后重试');
+    }
+  }
+};
+
+onMounted(() => {
+  loadBulletinDetail();
+});
 </script>
 
 <template>
   <section v-if="bulletin" class="detail">
     <button class="back" type="button" @click="goBack">← 返回公告列表</button>
     <div class="detail__hero">
-      <div class="badge">{{ serviceLabel(bulletin.serviceType) }}</div>
+      <div class="badge">{{ serviceLabel(bulletin.service_type) }}</div>
       <div class="distance">{{ bulletin.distance }}</div>
       <h1>{{ bulletin.title }}</h1>
-      <p class="sub">创建时间：{{ bulletin.createdAt }}</p>
+      <p class="sub">创建时间：{{ bulletin.created_at }}</p>
     </div>
 
     <div class="card">
@@ -59,17 +88,17 @@ const handleAccept = () => {
         </div>
         <div>
           <span class="label">服务时间</span>
-          <p class="value">{{ bulletin.serviceTime }}</p>
+          <p class="value">{{ bulletin.service_time }}</p>
         </div>
       </div>
       <div class="row">
         <div>
           <span class="label">宠物</span>
-          <p class="value">{{ bulletin.petName || '未填写' }} · {{ bulletin.petType || '未填写' }}</p>
+          <p class="value">{{ bulletin.pet_name || '未填写' }} · {{ bulletin.pet_type || '未填写' }}</p>
         </div>
         <div>
           <span class="label">宠托师性别</span>
-          <p class="value">{{ bulletin.walkerGender }}</p>
+          <p class="value">{{ bulletin.walker_gender }}</p>
         </div>
       </div>
       <div class="row">

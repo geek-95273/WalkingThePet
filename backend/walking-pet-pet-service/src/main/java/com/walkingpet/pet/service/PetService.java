@@ -31,6 +31,10 @@ public class PetService {
         if (!StringUtils.hasText(request.getName()) || !StringUtils.hasText(request.getType())) {
             throw new BusinessException("宠物名称和类型不能为空");
         }
+        
+        log.info("创建宠物档案 - userId: {}, name: {}, 图片数据长度: {}", 
+                userId, request.getName(), 
+                request.getImage() != null ? request.getImage().length() : 0);
 
         Pet pet = new Pet();
         BeanUtils.copyProperties(request, pet);
@@ -40,6 +44,7 @@ public class PetService {
         pet.setUpdatedAt(LocalDateTime.now());
 
         petMapper.insert(pet);
+        log.info("宠物档案创建成功: {}", pet.getPetId());
         return pet;
     }
 
@@ -68,6 +73,10 @@ public class PetService {
      * 更新宠物档案
      */
     public Pet updatePet(String petId, String userId, PetRequest request) {
+        if (request == null) {
+            throw new BusinessException("请求参数不能为空");
+        }
+        
         Pet pet = petMapper.selectById(petId);
         if (pet == null) {
             throw new BusinessException("宠物不存在");

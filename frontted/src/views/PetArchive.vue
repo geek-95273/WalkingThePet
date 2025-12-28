@@ -1,15 +1,58 @@
 <script setup>
+import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
-import { petProfiles, removePetProfile } from '../data/petProfiles';
+import { getPetsApi, deletePetApi } from '../api/pet';
 
 const router = useRouter();
+
+const petProfiles = ref([]);
+
+const loadPets = async () => {
+  try {
+    const response = await getPetsApi();
+    if (response.success && response.body) {
+      petProfiles.value = response.body.map(pet => {
+        console.log(`宠物 ${pet.name} 图片数据:`, pet.image ? pet.image.substring(0, 100) + '...' : '无图片');
+        return {
+          id: pet.petId,
+          name: pet.name,
+          type: pet.type,
+          age: pet.age,
+          gender: pet.gender,
+          weight: pet.weight,
+          breed: pet.breed,
+          intro: pet.intro || '',
+          image: pet.image || 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="300" height="200"%3E%3Crect fill="%23ddd" width="300" height="200"/%3E%3Ctext fill="%23999" x="50%25" y="50%25" text-anchor="middle" dy=".3em"%3E暂无图片%3C/text%3E%3C/svg%3E'
+        };
+      });
+    }
+  } catch (error) {
+    console.error('加载宠物列表失败:', error);
+    alert('加载失败，请稍后重试');
+  }
+};
+
+onMounted(() => {
+  loadPets();
+});
 
 const goDetail = (id) => router.push({ name: 'PetDetail', params: { id } });
 const goCreate = () => router.push({ name: 'PetCreate' });
 const editPet = (id) => router.push({ name: 'PetEdit', params: { id } });
-const deletePet = (id) => {
+const deletePet = async (id) => {
   if (confirm('确认删除该宠物档案？')) {
-    removePetProfile(id);
+    try {
+      const response = await deletePetApi(id);
+      if (response.success) {
+        alert('删除成功');
+        await loadPets(); // 重新加载列表
+      } else {
+        alert(response.message || '删除失败');
+      }
+    } catch (error) {
+      console.error('删除宠物失败:', error);
+      alert('删除失败，请稍后重试');
+    }
   }
 };
 </script>

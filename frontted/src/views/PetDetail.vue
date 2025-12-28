@@ -1,30 +1,59 @@
 <script setup>
-import { computed } from 'vue';
+import { ref, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { findPetProfile, removePetProfile } from '../data/petProfiles';
+import { getPetDetailApi, deletePetApi } from '../api/pet';
 
 const route = useRoute();
 const router = useRouter();
-const pet = computed(() => findPetProfile(route.params.id));
+const pet = ref(null);
+const loading = ref(false);
+
+// 加载宠物详情
+const loadPetDetail = async () => {
+  try {
+    loading.value = true;
+    const data = await getPetDetailApi(route.params.id);
+    pet.value = data;
+  } catch (error) {
+    console.error('加载宠物详情失败:', error);
+    alert('加载失败，请重试');
+    router.push({ name: 'PetArchive' });
+  } finally {
+    loading.value = false;
+  }
+};
 
 const editPet = () => {
   if (!pet.value) return;
-  router.push({ name: 'PetEdit', params: { id: pet.value.id } });
+  router.push({ name: 'PetEdit', params: { id: pet.value.petId } });
 };
 
-const deletePet = () => {
+const deletePet = async () => {
   if (!pet.value) return;
   if (confirm('确认删除该宠物档案？')) {
-    removePetProfile(pet.value.id);
-    router.push({ name: 'PetArchive' });
+    try {
+      await deletePetApi(pet.value.petId);
+      alert('删除成功！');
+      router.push({ name: 'PetArchive' });
+    } catch (error) {
+      console.error('删除失败:', error);
+      alert('删除失败，请重试');
+    }
   }
 };
 
 const goBack = () => router.push({ name: 'PetArchive' });
+
+onMounted(() => {
+  loadPetDetail();
+});
 </script>
 
 <template>
-  <section v-if="pet" class="detail">
+  <section v-if="loading" class="detail" style="text-align: center; padding: 40px;">
+    <p>加载中...</p>
+  </section>
+  <section v-else-if="pet" class="detail">
     <button class="back" type="button" @click="goBack">← 返回宠物档案</button>
 
     <div class="hero">

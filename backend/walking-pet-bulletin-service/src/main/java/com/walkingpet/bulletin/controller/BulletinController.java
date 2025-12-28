@@ -30,8 +30,8 @@ public class BulletinController {
      * 创建公告
      */
     @PostMapping
-    public Result<Map<String, Object>> createBulletin(
-            @RequestHeader(value = "X-User-Id", required = false, defaultValue = "u-1000") String userId,
+        public Result<Map<String, Object>> createBulletin(
+            @RequestHeader(value = "X-User-Id") String userId,
             @RequestBody BulletinCreateDTO dto) {
         try {
             Bulletin bulletin = bulletinService.createBulletin(userId, dto);
@@ -63,9 +63,11 @@ public class BulletinController {
     public Result<Map<String, Object>> getBulletinList(
             @RequestParam(defaultValue = "1") Integer page,
             @RequestParam(name = "page_size", defaultValue = "10") Integer pageSize,
-            @RequestParam(name = "service_type", required = false) String serviceType) {
+            @RequestParam(name = "service_type", required = false) String serviceType,
+            @RequestParam(name = "mine", required = false, defaultValue = "false") Boolean mine,
+            @RequestHeader(value = "X-User-Id", required = false) String userId) {
         try {
-            IPage<Bulletin> pageResult = bulletinService.getBulletinList(page, pageSize, serviceType);
+            IPage<Bulletin> pageResult = bulletinService.getBulletinList(page, pageSize, serviceType, userId, mine);
             
             List<Map<String, Object>> list = pageResult.getRecords().stream().map(bulletin -> {
                 Map<String, Object> item = new HashMap<>();
@@ -134,9 +136,10 @@ public class BulletinController {
     @PostMapping("/{id}/accept")
     public Result<Map<String, Object>> acceptBulletin(
             @PathVariable String id,
-            @RequestBody BulletinAcceptDTO dto) {
+            @RequestBody BulletinAcceptDTO dto,
+            @RequestHeader(value = "X-User-Id", required = false) String userId) {
         try {
-            Bulletin bulletin = bulletinService.acceptBulletin(id, dto);
+            Bulletin bulletin = bulletinService.acceptBulletin(id, dto, userId);
             
             Map<String, Object> result = new HashMap<>();
             result.put("id", bulletin.getBulletinId());
@@ -154,9 +157,9 @@ public class BulletinController {
      * 删除公告
      */
     @DeleteMapping("/{id}")
-    public Result<Map<String, Object>> deleteBulletin(
+        public Result<Map<String, Object>> deleteBulletin(
             @PathVariable String id,
-            @RequestHeader(value = "X-User-Id", required = false, defaultValue = "u-1000") String userId) {
+            @RequestHeader(value = "X-User-Id") String userId) {
         try {
             bulletinService.deleteBulletin(id, userId);
             

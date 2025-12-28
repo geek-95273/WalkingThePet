@@ -1,6 +1,40 @@
 <script setup>
-import { ref, reactive } from 'vue';
-import { completeOrder, orders } from '../data/orders';
+import { ref, reactive, onMounted } from 'vue';
+import { getOrdersApi, completeOrderApi, acceptOrderApi } from '../api/order';
+import { user } from '../data/user';
+
+const orders = ref([]);
+
+const loadOrders = async () => {
+  try {
+    const response = await getOrdersApi();
+    if (response.success && response.body) {
+      orders.value = response.body.map(order => ({
+        id: order.orderId,
+        userId: order.userId,
+        sitterId: order.sitterId,
+        sitterName: order.sitterName || '宠托师',
+        serviceType: order.serviceType,
+        status: order.status,
+        serviceTime: order.serviceTime,
+        address: order.address,
+        remark: order.remark,
+        createdAt: order.createdAt,
+        completeContent: order.completeContent,
+        completeImage: order.completeImage,
+        isMyOrder: order.userId === user.userId, // 是我下的单
+        isMySitterOrder: order.sitterId === user.userId // 是我作为宠托师接的单
+      }));
+    }
+  } catch (error) {
+    console.error('加载订单失败:', error);
+    alert('加载订单失败，请稍后重试');
+  }
+};
+
+onMounted(() => {
+  loadOrders();
+});
 
 const serviceLabel = (type) => (type === 'feed-cat' ? '上门喂猫' : '上门溜狗');
 
@@ -29,7 +63,7 @@ const handleImageChange = (event) => {
   }
 };
 
-const handleComplete = () => {
+const handleComplete = async () => {
   if (!completeForm.content.trim()) {
     alert('请填写完成内容');
     return;
@@ -38,13 +72,43 @@ const handleComplete = () => {
     alert('请上传完成图片');
     return;
   }
-  completeOrder(currentOrderId.value, completeForm.content, completeForm.image);
-  alert('订单已完成');
-  showCompleteModal.value = false;
+  
+  try {
+    const response = await completeOrderApi(currentOrderId.value, {
+      completeContent: completeForm.content,
+      completeImage: completeForm.image
+    });
+    
+    if (response.success) {
+      alert('订单已完成');
+      showCompleteModal.value = false;
+      await loadOrders(); // 重新加载订单列表
+    } else {
+      alert(response.message || '完成失败');
+    }
+  } catch (error) {
+    console.error('完成订单失败:', error);
+    alert('完成失败，请稍后重试');
+  }
 };
 
 const cancelComplete = () => {
   showCompleteModal.value = false;
+};
+
+const handleAccept = async (orderId) => {
+  try {
+    const response = await acceptOrderApi(orderId);
+    if (response.success) {
+      alert('接单成功！');
+      await loadOrders(); // 重新加载订单列表
+    } else {
+      alert(response.message || '接单失败');
+    }
+  } catch (error) {
+    console.error('接单失败:', error);
+    alert(error.message || '接单失败，请稍后重试');
+  }
 };
 </script>
 
@@ -63,6 +127,8 @@ const cancelComplete = () => {
         <div class="row">
           <div>
             <div class="badge">{{ serviceLabel(order.serviceType) }}</div>
+            <span v-if="order.isMyOrder" class="role-tag owner">我下的单</span>
+            <span v-if="order.isMySitterOrder" class="role-tag sitter">我接的单</span>
             <h3>{{ order.sitterName }}</h3>
             <p class="meta">下单时间：{{ order.createdAt }}</p>
           </div>
@@ -82,15 +148,26 @@ const cancelComplete = () => {
         </div>
         
         <div class="actions">
+          <!-- 宠托师接的单，状态为已接单时可以完成 -->
           <button 
-            v-if="order.status === '已接单'" 
+            v-if="order.isMySitterOrder && order.status === '已接单'" 
             class="cta" 
             type="button" 
             @click="openCompleteModal(order.id)"
           >
             完成订单
           </button>
-          <span v-if="order.status === '待宠托师接单'" class="waiting-tip">等待宠托师接单...</span>
+          <!-- 宠托师看到待接单的订单可以接单 -->
+          <button 
+            v-if="!order.isMyOrder && order.status === '待宠托师接单'" 
+            class="cta accept" 
+            type="button" 
+            @click="handleAccept(order.id)"
+          >
+            接单
+          </button>
+          <!-- 用户下的单，待接单状态显示等待提示 -->
+          <span v-if="order.isMyOrder && order.status === '待宠托师接单'" class="waiting-tip">等待宠托师接单...</span>
         </div>
       </article>
     </div>
@@ -192,6 +269,27 @@ h1 {
   border: 1px solid rgba(255, 214, 102, 0.4);
   color: #4a3900;
   font-weight: 800;
+}
+
+.role-tag {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 6px;
+  margin-left: 8px;
+}
+
+.role-tag.owner {
+  background: rgba(102, 178, 255, 0.2);
+  color: #1a5490;
+  border: 1px solid rgba(102, 178, 255, 0.4);
+}
+
+.role-tag.sitter {
+  background: rgba(76, 175, 80, 0.2);
+  color: #2d5f2e;
+  border: 1px solid rgba(76, 175, 80, 0.4);
 }
 
 h3 {
