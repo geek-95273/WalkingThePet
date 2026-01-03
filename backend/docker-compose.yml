@@ -1,56 +1,102 @@
 version: '3.8'
 
 services:
-  # MySQL数据库
-  mysql:
-    image: mysql:8.0
-    container_name: walking-pet-mysql
+  # 网关服务
+  gateway:
+    build:
+      context: .
+      dockerfile: ./walking-pet-gateway/Dockerfile
+    container_name: walking-pet-gateway
     ports:
-      - "3306:3306"
+      - "8000:8000"
     environment:
-      MYSQL_ROOT_PASSWORD: 123456
-      MYSQL_CHARACTER_SET_SERVER: utf8mb4
-      MYSQL_COLLATION_SERVER: utf8mb4_unicode_ci
-    volumes:
-      - ./sql/init.sql:/docker-entrypoint-initdb.d/init.sql
-      - mysql-data:/var/lib/mysql
+      SPRING_CLOUD_NACOS_DISCOVERY_SERVER_ADDR: host.docker.internal:8848
     networks:
       - walking-pet-network
-    healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
 
-  # Nacos服务
-  nacos:
-    image: nacos/nacos-server:v2.2.0
-    container_name: walking-pet-nacos
+  # 用户服务
+  user-service:
+    build:
+      context: .
+      dockerfile: ./walking-pet-user-service/Dockerfile
+    container_name: walking-pet-user-service
     ports:
-      - "8848:8848"
-      - "9848:9848"
+      - "8001:8001"
     environment:
-      MODE: standalone
-      SPRING_DATASOURCE_PLATFORM: mysql
-      MYSQL_SERVICE_HOST: mysql
-      MYSQL_SERVICE_DB_NAME: nacos
-      MYSQL_SERVICE_PORT: 3306
-      MYSQL_SERVICE_USER: root
-      MYSQL_SERVICE_PASSWORD: 1234
-    depends_on:
-      mysql:
-        condition: service_healthy
+      SPRING_DATASOURCE_URL: jdbc:mysql://host.docker.internal:3306/walking_pet_user?useUnicode=true&characterEncoding=utf-8&useSSL=false&serverTimezone=Asia/Shanghai
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: 1234
+      SPRING_CLOUD_NACOS_DISCOVERY_SERVER_ADDR: host.docker.internal:8848
     networks:
       - walking-pet-network
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://192.168.163.1:8080/index.html"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
 
-volumes:
-  mysql-data:
+  # 宠物服务
+  pet-service:
+    build:
+      context: .
+      dockerfile: ./walking-pet-pet-service/Dockerfile
+    container_name: walking-pet-pet-service
+    ports:
+      - "8002:8002"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://host.docker.internal:3306/walking_pet_pet?useUnicode=true&characterEncoding=utf-8&useSSL=false&serverTimezone=Asia/Shanghai
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: 1234
+      SPRING_CLOUD_NACOS_DISCOVERY_SERVER_ADDR: host.docker.internal:8848
+    networks:
+      - walking-pet-network
+
+  # 公告服务
+  bulletin-service:
+    build:
+      context: .
+      dockerfile: ./walking-pet-bulletin-service/Dockerfile
+    container_name: walking-pet-bulletin-service
+    ports:
+      - "8003:8003"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://host.docker.internal:3306/walking_pet_bulletin?useUnicode=true&characterEncoding=utf-8&useSSL=false&serverTimezone=Asia/Shanghai
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: 1234
+      SPRING_CLOUD_NACOS_DISCOVERY_SERVER_ADDR: host.docker.internal:8848
+    networks:
+      - walking-pet-network
+
+  # 宠托师服务
+  sitter-service:
+    build:
+      context: .
+      dockerfile: ./walking-pet-sitter-service/Dockerfile
+    container_name: walking-pet-sitter-service
+    ports:
+      - "8004:8004"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://host.docker.internal:3306/walking_pet_sitter?useUnicode=true&characterEncoding=utf-8&useSSL=false&serverTimezone=Asia/Shanghai
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: 1234
+      SPRING_CLOUD_NACOS_DISCOVERY_SERVER_ADDR: host.docker.internal:8848
+    networks:
+      - walking-pet-network
+
+  # 订单服务
+  order-service:
+    build:
+      context: .
+      dockerfile: ./walking-pet-order-service/Dockerfile
+    container_name: walking-pet-order-service
+    ports:
+      - "8005:8005"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://host.docker.internal:3306/walking_pet_order?useUnicode=true&characterEncoding=utf-8&useSSL=false&serverTimezone=Asia/Shanghai
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: 1234
+      SPRING_CLOUD_NACOS_DISCOVERY_SERVER_ADDR: host.docker.internal:8848
+      SITTER_SERVICE_URL: http://sitter-service:8004
+    networks:
+      - walking-pet-network
 
 networks:
   walking-pet-network:
     driver: bridge
+
+volumes: {}

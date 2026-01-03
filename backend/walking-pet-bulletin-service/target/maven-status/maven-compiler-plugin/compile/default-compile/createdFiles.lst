@@ -1,3 +1,4 @@
+com\walkingpet\bulletin\feign\OrderFeignClient.class
 com\walkingpet\bulletin\BulletinServiceApplication.class
 com\walkingpet\bulletin\mapper\BulletinMapper.class
 com\walkingpet\bulletin\controller\BulletinController.class
